@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Idle Civilization – From Caveman to Galaxy</title>
+<title>ICG</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
 <style>
 /* ===== Body & Background ===== */
@@ -16,11 +16,7 @@ body {
   display:flex; flex-direction:column; align-items:center; min-height:100vh;
   overflow-x:hidden;
 }
-@keyframes gradientBG {
-  0%{background-position:0% 50%;}
-  50%{background-position:100% 50%;}
-  100%{background-position:0% 50%;}
-}
+@keyframes gradientBG {0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
 
 /* ===== Titles ===== */
 h1{margin:20px 0; text-shadow:2px 2px 5px #000; text-align:center;}
@@ -31,12 +27,8 @@ h2{margin:10px 0;}
 .stat { background:rgba(0,0,0,0.5); padding:10px 20px; border-radius:12px; box-shadow:0 0 10px #0ff; }
 
 /* ===== Buttons ===== */
-button {
-  font-size:16px; padding:10px 20px; margin:10px; border-radius:12px; border:none;
-  cursor:pointer; transition:.3s; font-weight:bold;
-}
+button { font-size:16px; padding:10px 20px; margin:10px; border-radius:12px; border:none; cursor:pointer; transition:.3s; font-weight:bold;}
 button:hover { transform:scale(1.1); box-shadow:0 0 20px #0ff; }
-
 .clickBtn { background:linear-gradient(45deg,#00ff99,#00ccff); color:#000; }
 .upgradeBtn { background:linear-gradient(45deg,#ffcc00,#ff6600); color:#111; box-shadow:0 0 20px #ff0; }
 .upgradeBtn:hover{ transform:scale(1.05); }
@@ -44,29 +36,25 @@ button:hover { transform:scale(1.1); box-shadow:0 0 20px #0ff; }
 /* ===== Panels ===== */
 #enemy,#store,#events,#prestige { background:rgba(0,0,0,0.6); padding:20px; border-radius:15px; margin:20px; width:90%; max-width:600px; text-align:center; box-shadow:0 0 20px #0ff; }
 
-/* ===== Resources ===== */
-.resource-bar { width:100%; height:20px; background:#222; border-radius:10px; overflow:hidden; margin:5px 0; }
-.resource-fill { height:100%; background:#0f0; width:0%; transition:width 0.3s; }
-
 /* ===== Click Effect ===== */
-.star {
-  position:absolute; width:8px; height:8px; background:yellow; border-radius:50%;
-  pointer-events:none; animation:fly 1s ease-out forwards;
-}
-@keyframes fly {
-  0%{transform:translate(0,0) scale(1); opacity:1;}
-  100%{transform:translate(0,-100px) scale(0.3); opacity:0;}
-}
+.star { position:absolute; width:8px; height:8px; background:yellow; border-radius:50%; pointer-events:none; animation:fly 1s ease-out forwards; }
+@keyframes fly {0%{transform:translate(0,0) scale(1); opacity:1;}100%{transform:translate(0,-100px) scale(0.3); opacity:0;}}
 </style>
 </head>
 <body>
 
-<h1>Idle Civilization – From Caveman to Galaxy</h1>
+<h1 id="gameTitle">ICG</h1>
+
+<select id="langSelect">
+  <option value="en">English</option>
+  <option value="ja">日本語</option>
+  <option value="es">Español</option>
+</select>
 
 <div class="stats">
-  <div class="stat">Power: <span id="points">0</span></div>
-  <div class="stat">Stage: <span id="stage">1</span></div>
-  <div class="stat">Prestige: <span id="prestige">0</span></div>
+  <div class="stat" id="pointsStat">Power: <span id="points">0</span></div>
+  <div class="stat" id="stageStat">Stage: <span id="stage">1</span></div>
+  <div class="stat" id="prestigeStat">Prestige: <span id="prestige">0</span></div>
 </div>
 
 <button id="clickBtn" class="clickBtn">Collect Resources</button>
@@ -74,7 +62,7 @@ button:hover { transform:scale(1.1); box-shadow:0 0 20px #0ff; }
 <button id="resetBtn">Reset</button>
 
 <div id="enemy">
-  <h2>Enemy: <span id="enemyName">Slime</span></h2>
+  <h2><span id="enemyLabel">Enemy:</span> <span id="enemyName">Slime</span></h2>
   <p>HP: <span id="enemyHp">10</span> / <span id="enemyMaxHp">10</span></p>
 </div>
 
@@ -95,22 +83,31 @@ button:hover { transform:scale(1.1); box-shadow:0 0 20px #0ff; }
 </div>
 
 <script>
+/* ===== Language Data ===== */
+const LANGS={
+  en:{title:"Idle Civilization – From Caveman to Galaxy",click:"Collect Resources",save:"Save",reset:"Reset",
+      upgradeClick:"Click Power Upgrade (Cost: {cost})",upgradeAuto:"Auto Power Upgrade (Cost: {cost})",
+      prestige:"Prestige Reset",enemy:"Enemy",hp:"HP",stage:"Stage",points:"Power",prestigeLabel:"Prestige",
+      eventNothing:"Nothing happening..."},
+  ja:{title:"アイドル文明 – 原始人から銀河へ",click:"資源を集める",save:"セーブ",reset:"リセット",
+      upgradeClick:"クリック強化 (コスト: {cost})",upgradeAuto:"自動収集強化 (コスト: {cost})",
+      prestige:"転生リセット",enemy:"敵",hp:"HP",stage:"ステージ",points:"パワー",prestigeLabel:"転生",
+      eventNothing:"何も起きていません..."},
+  es:{title:"Civilización Idle – De Hombre de las Cavernas a la Galaxia",click:"Recolectar Recursos",
+      save:"Guardar",reset:"Reiniciar",upgradeClick:"Mejora de Clic (Costo: {cost})",
+      upgradeAuto:"Mejora Automática (Costo: {cost})",prestige:"Reiniciar Prestigio",
+      enemy:"Enemigo",hp:"HP",stage:"Etapa",points:"Poder",prestigeLabel:"Prestigio",
+      eventNothing:"Nada está sucediendo..."}
+};
+
 /* ===== Game Variables ===== */
-let points=0, clickPower=1, autoPower=0, upgradeClickCost=100, upgradeAutoCost=500, stage=1, enemyHp=10, enemyMaxHp=10, prestige=0;
+let points=0,clickPower=1,autoPower=0,upgradeClickCost=100,upgradeAutoCost=500,stage=1,enemyHp=10,enemyMaxHp=10,prestige=0;
+let currentLang='en';
 const enemyNames=["Slime","Goblin","Dragon","Demon Lord"];
 const eventsList=[
-  {text:"A festival increases production!",effect:()=>points+=stage*50},
-  {text:"A plague reduces production!",effect:()=>points-=Math.min(points,stage*30)}
+  {textEN:"A festival increases production!",textJA:"祭りで生産が増加！",textES:"¡Un festival aumenta la producción!",effect:()=>points+=stage*50},
+  {textEN:"A plague reduces production!",textJA:"疫病で生産減少！",textES:"¡Una plaga reduce la producción!",effect:()=>points-=Math.min(points,stage*30)}
 ];
-
-/* ===== Load Save ===== */
-if(localStorage.getItem("saveData")){
-  const s=JSON.parse(localStorage.getItem("saveData"));
-  points=s.points||0; clickPower=s.clickPower||1; autoPower=s.autoPower||0;
-  upgradeClickCost=s.upgradeClickCost||100; upgradeAutoCost=s.upgradeAutoCost||500;
-  stage=s.stage||1; enemyHp=s.enemyHp||10; enemyMaxHp=s.enemyMaxHp||10;
-  prestige=s.prestige||0;
-}
 
 /* ===== DOM Elements ===== */
 const pointsEl=document.getElementById("points");
@@ -121,6 +118,23 @@ const enemyMaxHpEl=document.getElementById("enemyMaxHp");
 const prestigeEl=document.getElementById("prestige");
 const eventTextEl=document.getElementById("eventText");
 
+/* ===== Language Switch ===== */
+document.getElementById("langSelect").onchange=(e)=>{
+  currentLang=e.target.value; updateLabels();
+};
+
+function updateLabels(){
+  const lang=LANGS[currentLang];
+  document.getElementById("gameTitle").textContent=lang.title;
+  document.getElementById("clickBtn").textContent=lang.click;
+  document.getElementById("saveBtn").textContent=lang.save;
+  document.getElementById("resetBtn").textContent=lang.reset;
+  document.getElementById("upgradeClick").textContent=lang.upgradeClick.replace("{cost}",upgradeClickCost);
+  document.getElementById("upgradeAuto").textContent=lang.upgradeAuto.replace("{cost}",upgradeAutoCost);
+  document.getElementById("prestigeBtn").textContent=lang.prestige;
+  document.getElementById("enemyLabel").textContent=lang.enemy+": ";
+}
+
 /* ===== Update Display ===== */
 function updateDisplay(){
   pointsEl.textContent=points.toLocaleString();
@@ -129,8 +143,7 @@ function updateDisplay(){
   enemyNameEl.textContent=enemyNames[(stage-1)%enemyNames.length];
   enemyHpEl.textContent=Math.max(enemyHp,0);
   enemyMaxHpEl.textContent=enemyMaxHp;
-  document.getElementById("upgradeClick").textContent=`Click Power Upgrade (Cost: ${upgradeClickCost})`;
-  document.getElementById("upgradeAuto").textContent=`Auto Power Upgrade (Cost: ${upgradeAutoCost})`;
+  updateLabels();
 }
 
 /* ===== Attack & Enemy ===== */
@@ -153,7 +166,6 @@ setInterval(()=>{if(autoPower>0) attack(autoPower)},1000);
 /* ===== Upgrades ===== */
 document.getElementById("upgradeClick").onclick=()=>{
   if(points>=upgradeClickCost){points-=upgradeClickCost; clickPower=Math.floor(clickPower*2); upgradeClickCost=Math.floor(upgradeClickCost*2.5); updateDisplay();}};
-
 document.getElementById("upgradeAuto").onclick=()=>{
   if(points>=upgradeAutoCost){points-=upgradeAutoCost; autoPower+=Math.floor(upgradeAutoCost/10); upgradeAutoCost=Math.floor(upgradeAutoCost*3); updateDisplay();}};
 
@@ -161,8 +173,9 @@ document.getElementById("upgradeAuto").onclick=()=>{
 setInterval(()=>{
   if(Math.random()<0.05){
     const e=eventsList[Math.floor(Math.random()*eventsList.length)];
-    e.effect(); eventTextEl.textContent=e.text;
-  } else eventTextEl.textContent="Nothing happening...";
+    const txt=currentLang==="ja"?e.textJA:currentLang==="es"?e.textES:e.textEN;
+    e.effect(); eventTextEl.textContent=txt;
+  } else { eventTextEl.textContent=LANGS[currentLang].eventNothing; }
   updateDisplay();
 },5000);
 
@@ -175,10 +188,20 @@ document.getElementById("prestigeBtn").onclick=()=>{
 
 /* ===== Save & Reset ===== */
 document.getElementById("saveBtn").onclick=()=>{
-  const save={points,clickPower,autoPower,upgradeClickCost,upgradeAutoCost,stage,enemyHp,enemyMaxHp,prestige};
+  const save={points,clickPower,autoPower,upgradeClickCost,upgradeAutoCost,stage,enemyHp,enemyMaxHp,prestige,currentLang};
   localStorage.setItem("saveData",JSON.stringify(save)); alert("Game Saved!");
 };
 document.getElementById("resetBtn").onclick=()=>{if(confirm("Really reset?")){localStorage.removeItem("saveData"); location.reload();}};
+
+/* ===== Load Save ===== */
+if(localStorage.getItem("saveData")){
+  const s=JSON.parse(localStorage.getItem("saveData"));
+  points=s.points||0; clickPower=s.clickPower||1; autoPower=s.autoPower||0;
+  upgradeClickCost=s.upgradeClickCost||100; upgradeAutoCost=s.upgradeAutoCost||500;
+  stage=s.stage||1; enemyHp=s.enemyHp||10; enemyMaxHp=s.enemyMaxHp||10;
+  prestige=s.prestige||0; currentLang=s.currentLang||'en';
+  document.getElementById("langSelect").value=currentLang;
+}
 
 updateDisplay();
 </script>
