@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>3D脱出ゲーム完全版ギミック強化</title>
+  <title>8番出口風3Dゲーム</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     html,body { height:100%; margin:0; padding:0; overflow:hidden; }
@@ -18,49 +18,24 @@
       background:rgba(0,0,0,0.5); color:#ff0; padding:4px 12px; border-radius:10px; font-size:1em; margin-top:6px; pointer-events:auto;
       max-width:90vw; text-align:center;
     }
-    #items {
-      display:flex; gap:8px; margin-top:10px; pointer-events:auto;
+    #controls {
+      position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:20; display:flex; gap:24px; pointer-events:auto;
     }
-    .item {
-      background:rgba(255,255,255,0.8); color:#222; border-radius:8px; padding:4px 10px; font-size:1em; min-width:40px; text-align:center; box-shadow:0 0 4px #888;
+    .ctrlBtn {
+      background:#0af; color:#fff; border:none; border-radius:16px; font-size:1.3em; padding:16px 32px; box-shadow:0 0 10px #0af; font-weight:bold;
     }
-    #btn, #inputBox {
-      position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:20; background:#0af; color:#fff; border:none; border-radius:16px; font-size:1.2em; padding:12px 32px; box-shadow:0 0 10px #0af; display:none; pointer-events:auto;
-    }
-    #inputBox {
-      background:#fff; color:#222; box-shadow:0 0 10px #0af; border-radius:12px; padding:10px 20px; font-size:1.1em; min-width:120px;
-    }
-    #inputBox input {
-      font-size:1.1em; padding:4px 8px; border-radius:6px; border:1px solid #aaa; margin-right:8px;
-    }
-    #inputBox button {
-      font-size:1em; padding:4px 12px; border-radius:6px; border:none; background:#0af; color:#fff;
-    }
-    #mobileControls {
-      position:fixed; bottom:60px; left:50%; transform:translateX(-50%); z-index:30; display:flex; gap:16px; pointer-events:auto;
-    }
-    .mcBtn {
-      width:48px; height:48px; background:rgba(0,0,0,0.5); color:#fff; border-radius:50%; border:none; font-size:2em; display:flex; align-items:center; justify-content:center; box-shadow:0 0 8px #0af; }
-    .mcBtn:active { background:#0af; }
+    .ctrlBtn:active { background:#0055ff; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 </head>
 <body>
   <div id="ui">
-    <div id="msg">部屋から脱出しよう！</div>
+    <div id="msg">異変を見逃さず出口を目指せ！</div>
     <div id="hint"></div>
-    <div id="items"></div>
   </div>
-  <button id="btn">ドアを開ける</button>
-  <div id="inputBox">
-    <input type="text" id="codeInput" maxlength="4" placeholder="暗号入力">
-    <button id="codeBtn">決定</button>
-  </div>
-  <div id="mobileControls">
-    <button class="mcBtn" id="mcUp">▲</button>
-    <button class="mcBtn" id="mcLeft">◀</button>
-    <button class="mcBtn" id="mcRight">▶</button>
-    <button class="mcBtn" id="mcDown">▼</button>
+  <div id="controls">
+    <button class="ctrlBtn" id="goBtn">進む</button>
+    <button class="ctrlBtn" id="backBtn">引き返す</button>
   </div>
   <canvas id="gameCanvas"></canvas>
   <script>
@@ -73,124 +48,145 @@
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 100);
     camera.position.set(0,1.6,4);
     camera.rotation.order = "YXZ";
-    // ===== 部屋・壁・床 =====
-    function createRoom(x,y,z,color=0x8888aa) {
-      const room = new THREE.Mesh(
-        new THREE.BoxGeometry(x,y,z),
-        new THREE.MeshStandardMaterial({color,side:THREE.BackSide})
+    // ===== 通路・出口・看板 =====
+    let corridor, door, sign, anomalyObj;
+    function createCorridor(isOdd, anomalyType) {
+      scene.clear();
+      // 通路
+      corridor = new THREE.Mesh(
+        new THREE.BoxGeometry(8,3,16),
+        new THREE.MeshStandardMaterial({color:isOdd?0x888888:0x666666,side:THREE.BackSide})
       );
-      return room;
+      scene.add(corridor);
+      // 出口ドア
+      door = new THREE.Mesh(
+        new THREE.BoxGeometry(2,2.5,0.2),
+        new THREE.MeshStandardMaterial({color:0x333399})
+      );
+      door.position.set(0,1.25,-7.8);
+      scene.add(door);
+      // 看板
+      sign = new THREE.Mesh(
+        new THREE.PlaneGeometry(2,0.6),
+        new THREE.MeshStandardMaterial({color:0xffffee})
+      );
+      sign.position.set(0,2.2,-6.5);
+      scene.add(sign);
+      // 異変
+      anomalyObj = null;
+      if(anomalyType!==null){
+        if(anomalyType==0){ // 看板の文字色
+          sign.material.color.set(0xff0000);
+        }else if(anomalyType==1){ // ドアの色
+          door.material.color.set(0xff9900);
+        }else if(anomalyType==2){ // 通路の壁色
+          corridor.material.color.set(0x00ff99);
+        }else if(anomalyType==3){ // 看板が消える
+          scene.remove(sign);
+        }else if(anomalyType==4){ // 天井にライト追加
+          anomalyObj = new THREE.PointLight(0xff00ff,1,10);
+          anomalyObj.position.set(0,2.8,-3);
+          scene.add(anomalyObj);
+        }
+      }
+      // ライト
+      scene.add(new THREE.AmbientLight(0xffffff,0.7));
+      const dirLight = new THREE.DirectionalLight(0xffffff,0.7);
+      dirLight.position.set(5,10,5);
+      scene.add(dirLight);
+      // カメラ初期位置
+      camera.position.set(0,1.6,4);
+      camera.rotation.set(0,0,0);
     }
-    // 部屋1: スタート
-    const room1 = createRoom(6,3,6,0x8888aa);
-    scene.add(room1);
-    // 部屋2: 鍵部屋
-    const room2 = createRoom(4,3,4,0x668866);
-    room2.position.set(6,0,0);
-    scene.add(room2);
-    // 部屋3: 脱出部屋
-    const room3 = createRoom(4,3,4,0x886666);
-    room3.position.set(-6,0,0);
-    scene.add(room3);
-    // ===== ドア =====
-    const door1 = new THREE.Mesh(
-      new THREE.BoxGeometry(1,2,0.1),
-      new THREE.MeshStandardMaterial({color:0x663300})
-    );
-    door1.position.set(0,1,-2.95);
-    scene.add(door1);
-    const door2 = new THREE.Mesh(
-      new THREE.BoxGeometry(1,2,0.1),
-      new THREE.MeshStandardMaterial({color:0x336699})
-    );
-    door2.position.set(5.95,1,0);
-    scene.add(door2);
-    const door3 = new THREE.Mesh(
-      new THREE.BoxGeometry(1,2,0.1),
-      new THREE.MeshStandardMaterial({color:0x336699})
-    );
-    door3.position.set(-5.95,1,0);
-    scene.add(door3);
-    // ===== ギミック: 箱・スイッチ・光る床 =====
-    const box1 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5,0.3,0.5),
-      new THREE.MeshStandardMaterial({color:0x444444})
-    );
-    box1.position.set(-2,0.15,2.5);
-    scene.add(box1);
-    const box2 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5,0.3,0.5),
-      new THREE.MeshStandardMaterial({color:0x888800})
-    );
-    box2.position.set(6.5,0.15,1.2);
-    scene.add(box2);
-    const switch1 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3,0.1,0.3),
-      new THREE.MeshStandardMaterial({color:0x00ff00,emissive:0x00ff00})
-    );
-    switch1.position.set(-1.5,0.05,-2.5);
-    scene.add(switch1);
-    const floorLight = new THREE.Mesh(
-      new THREE.PlaneGeometry(1,1),
-      new THREE.MeshStandardMaterial({color:0x00ffff,emissive:0x00ffff})
-    );
-    floorLight.position.set(6,0.01,-1.2);
-    floorLight.rotation.x = -Math.PI/2;
-    scene.add(floorLight);
-    // ===== アイテム =====
-    const key = new THREE.Mesh(
-      new THREE.TorusGeometry(0.15,0.05,16,32),
-      new THREE.MeshStandardMaterial({color:0xffd700})
-    );
-    key.position.set(6.5,0.5,0.5);
-    scene.add(key);
-    // メモ
-    const memo = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.5,0.3),
-      new THREE.MeshStandardMaterial({color:0xffffee})
-    );
-    memo.position.set(2,0.2,2.5);
-    memo.rotation.y = Math.PI/4;
-    scene.add(memo);
-    // ===== ライト =====
-    scene.add(new THREE.AmbientLight(0xffffff,0.7));
-    const dirLight = new THREE.DirectionalLight(0xffffff,0.7);
-    dirLight.position.set(5,10,5);
-    scene.add(dirLight);
-    // ===== レスポンシブ対応 =====
-    window.addEventListener('resize',()=>{
-      renderer.setSize(window.innerWidth,window.innerHeight);
-      camera.aspect=window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
-    });
     // ===== ゲーム状態 =====
-    let hasKey = false;
-    let hasMemo = false;
-    let hasBox1 = false;
-    let hasBox2 = false;
-    let box1Opened = false;
-    let box2Opened = false;
-    let switchOn = false;
-    let floorLightOn = false;
-    let escaped = false;
-    let currentRoom = 1;
-    let items = [];
-    let showHint = '';
-    let codeSolved = false;
-    const codeAnswer = '3142';
+    let step = 1;
+    let anomaly = false;
+    let anomalyType = null;
+    let gameover = false;
+    let cleared = false;
     // ===== UI =====
     const msg = document.getElementById('msg');
     const hint = document.getElementById('hint');
-    const itemsDiv = document.getElementById('items');
-    const btn = document.getElementById('btn');
-    const inputBox = document.getElementById('inputBox');
-    const codeInput = document.getElementById('codeInput');
-    const codeBtn = document.getElementById('codeBtn');
+    const goBtn = document.getElementById('goBtn');
+    const backBtn = document.getElementById('backBtn');
     function updateUI() {
-      itemsDiv.innerHTML = items.map(i=>`<div class="item">${i}</div>`).join('');
-      hint.textContent = showHint;
+      if(gameover){
+        msg.textContent = '失敗！異変を見逃したか、異変がないのに引き返した！';
+        hint.textContent = 'リロードで再挑戦できます';
+        goBtn.disabled = true;
+        backBtn.disabled = true;
+        return;
+      }
+      if(cleared){
+        msg.textContent = 'クリア！出口に到達！';
+        hint.textContent = 'おめでとう！';
+        goBtn.disabled = true;
+        backBtn.disabled = true;
+        return;
+      }
+      msg.textContent = `通路${step} 異変${anomaly?"あり":"なし"}`;
+      if(anomaly){
+        hint.textContent = '異変を感じたら引き返そう！スワイプで見回せます';
+      }else{
+        hint.textContent = '異変がなければ進もう！スワイプで見回せます';
+      }
     }
-    // ===== FPS風視点操作 =====
+    // ===== 異変生成 =====
+    function nextStep(){
+      step++;
+      anomaly = Math.random()<0.3; // 30%で異変
+      anomalyType = anomaly ? Math.floor(Math.random()*5) : null;
+      createCorridor(step%2==1, anomalyType);
+      updateUI();
+    }
+    // ===== 進む/引き返す判定 =====
+    function moveCamera(forward=true){
+      let targetZ = forward ? -6 : 8;
+      let startZ = camera.position.z;
+      let frames = 30;
+      let dz = (targetZ-startZ)/frames;
+      let i=0;
+      function anim(){
+        if(i<frames){
+          camera.position.z += dz;
+          i++;
+          requestAnimationFrame(anim);
+        }
+      }
+      anim();
+    }
+    goBtn.onclick=()=>{
+      if(gameover||cleared)return;
+      if(anomaly){
+        // 異変を見逃して進んだ→失敗
+        moveCamera(true);
+        setTimeout(()=>{gameover=true;updateUI();},800);
+      }else{
+        // 異変なしで進む→次の通路
+        moveCamera(true);
+        setTimeout(()=>{nextStep();},800);
+      }
+    };
+    backBtn.onclick=()=>{
+      if(gameover||cleared)return;
+      if(anomaly){
+        // 異変ありで引き返す→クリア
+        moveCamera(false);
+        setTimeout(()=>{cleared=true;updateUI();},800);
+      }else{
+        // 異変なしで引き返す→1番出口（最初に戻る）
+        moveCamera(false);
+        setTimeout(()=>{
+          step=1;
+          anomaly=false;
+          anomalyType=null;
+          createCorridor(true,null);
+          msg.textContent = '異変がないのに引き返した！1番出口に戻された';
+          hint.textContent = 'もう一度進もう';
+        },800);
+      }
+    };
+    // ===== 視点操作（スワイプ/ドラッグ） =====
     let isTouching=false, lastX=0, lastY=0;
     function onStart(e){
       isTouching=true;
@@ -210,169 +206,21 @@
     function onEnd(){ isTouching=false; }
     canvas.addEventListener('touchstart',onStart); canvas.addEventListener('touchmove',onMove); canvas.addEventListener('touchend',onEnd);
     canvas.addEventListener('mousedown',onStart); canvas.addEventListener('mousemove',onMove); canvas.addEventListener('mouseup',onEnd);
-    // ===== モバイル用移動ボタン =====
-    let moveF=0,moveB=0,moveL=0,moveR=0;
-    document.getElementById('mcUp').ontouchstart=()=>moveF=1;
-    document.getElementById('mcUp').ontouchend=()=>moveF=0;
-    document.getElementById('mcDown').ontouchstart=()=>moveB=1;
-    document.getElementById('mcDown').ontouchend=()=>moveB=0;
-    document.getElementById('mcLeft').ontouchstart=()=>moveL=1;
-    document.getElementById('mcLeft').ontouchend=()=>moveL=0;
-    document.getElementById('mcRight').ontouchstart=()=>moveR=1;
-    document.getElementById('mcRight').ontouchend=()=>moveR=0;
-    // ===== アイテム取得・ギミック判定 =====
-    function checkInteract(){
-      // メモ取得
-      if(!hasMemo && camera.position.distanceTo(memo.position)<1.0){
-        hasMemo=true;
-        items.push('メモ');
-        scene.remove(memo);
-        msg.textContent='メモを手に入れた。「箱の暗号は円周率の最初の4桁」';
-        showHint='ヒント: 箱の暗号は円周率の最初の4桁';
-        updateUI();
-      }
-      // 箱1取得
-      if(!hasBox1 && camera.position.distanceTo(box1.position)<1.0){
-        hasBox1=true;
-        items.push('箱1');
-        msg.textContent='箱1を見つけた。暗号を入力しよう';
-        showHint='箱1の暗号を入力してください';
-        inputBox.style.display='block';
-        updateUI();
-      }
-      // 箱1開け
-      if(hasBox1 && !box1Opened && codeSolved){
-        box1Opened=true;
-        items.push('鍵');
-        hasKey=true;
-        scene.remove(key);
-        msg.textContent='箱1が開いた！中から鍵を手に入れた';
-        showHint='ドアに近づこう';
-        inputBox.style.display='none';
-        updateUI();
-      }
-      // 箱2取得
-      if(!hasBox2 && camera.position.distanceTo(box2.position)<1.0){
-        hasBox2=true;
-        items.push('箱2');
-        msg.textContent='箱2を見つけた。スイッチを押すと開くかも？';
-        showHint='スイッチを探してみよう';
-        updateUI();
-      }
-      // 箱2開け
-      if(hasBox2 && !box2Opened && switchOn){
-        box2Opened=true;
-        items.push('ヒントカード');
-        msg.textContent='箱2が開いた！ヒントカードを手に入れた';
-        showHint='光る床に乗ってみよう';
-        updateUI();
-      }
-      // スイッチ
-      if(!switchOn && camera.position.distanceTo(switch1.position)<1.0){
-        switchOn=true;
-        switch1.material.color.set(0xff0000);
-        switch1.material.emissive.set(0xff0000);
-        msg.textContent='スイッチを押した！箱2が開くかも';
-        showHint='箱2に近づこう';
-        updateUI();
-      }
-      // 光る床
-      if(!floorLightOn && camera.position.distanceTo(floorLight.position)<0.7){
-        floorLightOn=true;
-        msg.textContent='隠し通路が現れた！';
-        showHint='脱出部屋へ行こう';
-        updateUI();
-      }
-      // ドア開け
-      if(currentRoom==1 && camera.position.distanceTo(door1.position)<1.5){
-        btn.style.display='block';
-        btn.textContent='隣の部屋へ';
-      }else if(currentRoom==2 && camera.position.distanceTo(door2.position)<1.5){
-        btn.style.display='block';
-        btn.textContent='脱出部屋へ';
-      }else if(currentRoom==3 && camera.position.distanceTo(door3.position)<1.5 && hasKey && floorLightOn){
-        btn.style.display='block';
-        btn.textContent='脱出する';
-      }else{
-        btn.style.display='none';
-      }
-    }
-    btn.onclick=()=>{
-      if(currentRoom==1 && camera.position.distanceTo(door1.position)<1.5){
-        currentRoom=2;
-        camera.position.set(6,1.6,0);
-        msg.textContent='鍵を探そう';
-        showHint='部屋の中を探してみよう';
-        updateUI();
-      }else if(currentRoom==2 && camera.position.distanceTo(door2.position)<1.5){
-        currentRoom=3;
-        camera.position.set(-6,1.6,0);
-        msg.textContent='脱出部屋に来た！ドアを開けるには鍵と隠し通路が必要';
-        showHint='ギミックをクリアしよう';
-        updateUI();
-      }else if(currentRoom==3 && camera.position.distanceTo(door3.position)<1.5 && hasKey && floorLightOn){
-        escaped=true;
-        msg.textContent='脱出成功！おめでとう！';
-        showHint='ゲームクリア！';
-        btn.style.display='none';
-        updateUI();
-      }
-    };
-    // ===== 箱の暗号入力 =====
-    codeBtn.onclick=()=>{
-      if(codeInput.value===codeAnswer){
-        codeSolved=true;
-        msg.textContent='正解！箱1が開いた';
-        showHint='箱1の中身を確認しよう';
-        inputBox.style.display='none';
-        updateUI();
-      }else{
-        msg.textContent='違います。もう一度入力してください';
-      }
-    };
-    // ===== WASD移動 =====
-    document.addEventListener('keydown',e=>{
-      if(e.key==='w')moveF=1;
-      if(e.key==='s')moveB=1;
-      if(e.key==='a')moveL=1;
-      if(e.key==='d')moveR=1;
-    });
-    document.addEventListener('keyup',e=>{
-      if(e.key==='w')moveF=0;
-      if(e.key==='s')moveB=0;
-      if(e.key==='a')moveL=0;
-      if(e.key==='d')moveR=0;
-    });
-    // ===== メインループ =====
+    // ===== 初期描画 =====
+    createCorridor(true,null);
+    updateUI();
+    // ===== レンダリングループ =====
     function animate(){
       requestAnimationFrame(animate);
-      // 移動
-      const speed=0.05;
-      let dir=new THREE.Vector3();
-      if(moveF)dir.z-=1;
-      if(moveB)dir.z+=1;
-      if(moveL)dir.x-=1;
-      if(moveR)dir.x+=1;
-      dir.applyEuler(camera.rotation);
-      camera.position.addScaledVector(dir,speed);
-      // 部屋ごとの壁制限
-      if(currentRoom==1){
-        camera.position.x=Math.max(-2.5,Math.min(2.5,camera.position.x));
-        camera.position.z=Math.max(-2.5,Math.min(2.5,camera.position.z));
-      }else if(currentRoom==2){
-        camera.position.x=Math.max(4.5,Math.min(7.5,camera.position.x));
-        camera.position.z=Math.max(-1.5,Math.min(1.5,camera.position.z));
-      }else if(currentRoom==3){
-        camera.position.x=Math.max(-7.5,Math.min(-4.5,camera.position.x));
-        camera.position.z=Math.max(-1.5,Math.min(1.5,camera.position.z));
-      }
-      camera.position.y=1.6;
-      checkInteract();
       renderer.render(scene,camera);
     }
     animate();
-    // ===== 初期UI更新 =====
-    updateUI();
+    // ===== レスポンシブ対応 =====
+    window.addEventListener('resize',()=>{
+      renderer.setSize(window.innerWidth,window.innerHeight);
+      camera.aspect=window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
   </script>
 </body>
 </html>
