@@ -1,292 +1,332 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>ICG – Idle Civilization Galaxy</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
-<style>
-/* ===== Body & Background ===== */
-body {
-  margin: 0;
-  font-family: 'Orbitron', sans-serif;
-  color: #fff;
-  background: linear-gradient(45deg,#3a1c71,#d76d77,#ffaf7b);
-  background-size: 400% 400%;
-  animation: gradientBG 20s ease infinite;
-  display:flex; flex-direction:column; align-items:center; min-height:100vh;
-  overflow-x:hidden;
-}
-@keyframes gradientBG {0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
-
-/* ===== Titles ===== */
-h1{margin:20px 0; text-shadow:2px 2px 5px #000; text-align:center;}
-h2{margin:10px 0;}
-
-/* ===== Stats ===== */
-.stats { display:flex; gap:15px; margin:10px; flex-wrap:wrap; justify-content:center;}
-.stat { background:rgba(0,0,0,0.5); padding:10px 20px; border-radius:12px; box-shadow:0 0 10px #0ff; }
-
-/* ===== Buttons ===== */
-button { font-size:16px; padding:10px 20px; margin:10px; border-radius:12px; border:none; cursor:pointer; transition:.3s; font-weight:bold;}
-button:hover { transform:scale(1.1); box-shadow:0 0 20px #0ff; }
-.clickBtn { background:linear-gradient(45deg,#00ff99,#00ccff); color:#000; }
-.upgradeBtn { background:linear-gradient(45deg,#ffcc00,#ff6600); color:#111; box-shadow:0 0 20px #ff0; }
-.upgradeBtn:hover{ transform:scale(1.05); }
-
-/* ===== Panels ===== */
-#enemy,#store,#events,#prestige,#buildingPanel,#heroPanel,#moneyPanel { 
-  background:rgba(0,0,0,0.6); padding:20px; border-radius:15px; margin:20px; width:90%; max-width:600px; text-align:center; box-shadow:0 0 20px #0ff; 
-}
-
-/* ===== Click Effect ===== */
-.star { position:absolute; width:8px; height:8px; background:yellow; border-radius:50%; pointer-events:none; animation:fly 1s ease-out forwards; }
-@keyframes fly {0%{transform:translate(0,0) scale(1); opacity:1;}100%{transform:translate(0,-100px) scale(0.3); opacity:0;}}
-
-/* ===== Resource Bars ===== */
-.resource-bar { width:100%; height:20px; background:#222; border-radius:10px; overflow:hidden; margin:5px 0; }
-.resource-fill { height:100%; background:#0f0; width:0%; transition:width 0.3s; }
-</style>
+  <meta charset="UTF-8">
+  <title>3D脱出ゲーム完全版</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    html,body { height:100%; margin:0; padding:0; overflow:hidden; }
+    #gameCanvas { width:100vw; height:100vh; display:block; touch-action:none; }
+    #ui {
+      position:fixed; top:0; left:0; width:100vw; z-index:10; display:flex; flex-direction:column; align-items:center; pointer-events:none;
+    }
+    #msg {
+      background:rgba(0,0,0,0.7); color:#fff; padding:8px 16px; border-radius:12px; font-size:1.2em; margin-top:10px; pointer-events:auto;
+      max-width:90vw; text-align:center;
+    }
+    #hint {
+      background:rgba(0,0,0,0.5); color:#ff0; padding:4px 12px; border-radius:10px; font-size:1em; margin-top:6px; pointer-events:auto;
+      max-width:90vw; text-align:center;
+    }
+    #items {
+      display:flex; gap:8px; margin-top:10px; pointer-events:auto;
+    }
+    .item {
+      background:rgba(255,255,255,0.8); color:#222; border-radius:8px; padding:4px 10px; font-size:1em; min-width:40px; text-align:center; box-shadow:0 0 4px #888;
+    }
+    #btn, #inputBox {
+      position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:20; background:#0af; color:#fff; border:none; border-radius:16px; font-size:1.2em; padding:12px 32px; box-shadow:0 0 10px #0af; display:none; pointer-events:auto;
+    }
+    #inputBox {
+      background:#fff; color:#222; box-shadow:0 0 10px #0af; border-radius:12px; padding:10px 20px; font-size:1.1em; min-width:120px;
+    }
+    #inputBox input {
+      font-size:1.1em; padding:4px 8px; border-radius:6px; border:1px solid #aaa; margin-right:8px;
+    }
+    #inputBox button {
+      font-size:1em; padding:4px 12px; border-radius:6px; border:none; background:#0af; color:#fff;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 </head>
 <body>
+  <div id="ui">
+    <div id="msg">部屋から脱出しよう！</div>
+    <div id="hint"></div>
+    <div id="items"></div>
+  </div>
+  <button id="btn">ドアを開ける</button>
+  <div id="inputBox">
+    <input type="text" id="codeInput" maxlength="4" placeholder="暗号入力">
+    <button id="codeBtn">決定</button>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    // ===== Three.js 基本セットアップ =====
+    const canvas = document.getElementById('gameCanvas');
+    const renderer = new THREE.WebGLRenderer({canvas,antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x222233);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 100);
+    camera.position.set(0,1.6,4);
 
-<h1 id="gameTitle">ICG – Idle Civilization Galaxy</h1>
+    // ===== 部屋・壁・床 =====
+    function createRoom(x,y,z,color=0x8888aa) {
+      const room = new THREE.Mesh(
+        new THREE.BoxGeometry(x,y,z),
+        new THREE.MeshStandardMaterial({color,side:THREE.BackSide})
+      );
+      return room;
+    }
+    // 部屋1: スタート
+    const room1 = createRoom(6,3,6,0x8888aa);
+    scene.add(room1);
+    // 部屋2: 鍵部屋
+    const room2 = createRoom(4,3,4,0x668866);
+    room2.position.set(6,0,0);
+    scene.add(room2);
+    // 部屋3: 脱出部屋
+    const room3 = createRoom(4,3,4,0x886666);
+    room3.position.set(-6,0,0);
+    scene.add(room3);
 
-<select id="langSelect">
-  <option value="en">English</option>
-  <option value="ja">日本語</option>
-  <option value="es">Español</option>
-</select>
+    // ===== ドア =====
+    const door1 = new THREE.Mesh(
+      new THREE.BoxGeometry(1,2,0.1),
+      new THREE.MeshStandardMaterial({color:0x663300})
+    );
+    door1.position.set(0,1,-2.95);
+    scene.add(door1);
 
-<div class="stats">
-  <div class="stat" id="pointsStat">Power: <span id="points">0</span></div>
-  <div class="stat" id="stageStat">Stage: <span id="stage">1</span></div>
-  <div class="stat" id="prestigeStat">Prestige: <span id="prestige">0</span></div>
-  <div class="stat" id="moneyStat">Money: <span id="money">0</span></div>
-</div>
+    const door2 = new THREE.Mesh(
+      new THREE.BoxGeometry(1,2,0.1),
+      new THREE.MeshStandardMaterial({color:0x336699})
+    );
+    door2.position.set(5.95,1,0);
+    scene.add(door2);
 
-<button id="clickBtn" class="clickBtn">Collect Resources</button>
-<button id="saveBtn">Save</button>
-<button id="resetBtn">Reset</button>
+    const door3 = new THREE.Mesh(
+      new THREE.BoxGeometry(1,2,0.1),
+      new THREE.MeshStandardMaterial({color:0x336699})
+    );
+    door3.position.set(-5.95,1,0);
+    scene.add(door3);
 
-<div id="enemy">
-  <h2><span id="enemyLabel">Enemy:</span> <span id="enemyName">Slime</span></h2>
-  <p>HP: <span id="enemyHp">10</span> / <span id="enemyMaxHp">10</span></p>
-</div>
+    // ===== アイテム =====
+    // 鍵
+    const key = new THREE.Mesh(
+      new THREE.TorusGeometry(0.15,0.05,16,32),
+      new THREE.MeshStandardMaterial({color:0xffd700})
+    );
+    key.position.set(6.5,0.5,0.5);
+    scene.add(key);
 
-<div id="store">
-  <h2>Upgrade Shop</h2>
-  <button id="upgradeClick" class="upgradeBtn">Click Power Upgrade (Cost: 100)</button>
-  <button id="upgradeAuto" class="upgradeBtn">Auto Power Upgrade (Cost: 500)</button>
-  <button id="upgradeAutoMoney" class="upgradeBtn">Auto Money Upgrade (Cost: 1000)</button>
-</div>
+    // メモ
+    const memo = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.5,0.3),
+      new THREE.MeshStandardMaterial({color:0xffffee})
+    );
+    memo.position.set(2,0.2,2.5);
+    memo.rotation.y = Math.PI/4;
+    scene.add(memo);
 
-<div id="buildingPanel">
-  <h2>Buildings</h2>
-  <button id="buildWood" class="upgradeBtn">Build Lumber Mill (Cost: 500)</button>
-  <button id="buildStone" class="upgradeBtn">Build Quarry (Cost: 500)</button>
-</div>
+    // 箱
+    const box = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5,0.3,0.5),
+      new THREE.MeshStandardMaterial({color:0x444444})
+    );
+    box.position.set(-2,0.15,2.5);
+    scene.add(box);
 
-<div id="heroPanel">
-  <h2>Heroes</h2>
-  <button id="hireHero" class="upgradeBtn">Hire Hero (Cost: 1000)</button>
-</div>
+    // ===== ライト =====
+    scene.add(new THREE.AmbientLight(0xffffff,0.7));
+    const dirLight = new THREE.DirectionalLight(0xffffff,0.7);
+    dirLight.position.set(5,10,5);
+    scene.add(dirLight);
 
-<div id="events">
-  <h2>Random Event</h2>
-  <p id="eventText">Nothing happening...</p>
-</div>
+    // ===== レスポンシブ対応 =====
+    window.addEventListener('resize',()=>{
+      renderer.setSize(window.innerWidth,window.innerHeight);
+      camera.aspect=window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
 
-<div id="prestige">
-  <h2>Prestige / Rebirth</h2>
-  <button id="prestigeBtn" class="upgradeBtn">Prestige Reset</button>
-</div>
+    // ===== ゲーム状態 =====
+    let hasKey = false;
+    let hasMemo = false;
+    let hasBox = false;
+    let boxOpened = false;
+    let escaped = false;
+    let currentRoom = 1; // 1:スタート,2:鍵部屋,3:脱出部屋
+    let items = [];
+    let showHint = '';
+    let codeSolved = false;
+    const codeAnswer = '3142';
 
-<script>
-/* ===== Language Data ===== */
-const LANGS={
-  en:{title:"Idle Civilization – From Caveman to Galaxy",click:"Collect Resources",save:"Save",reset:"Reset",
-      upgradeClick:"Click Power Upgrade (Cost: {cost})",upgradeAuto:"Auto Power Upgrade (Cost: {cost})",
-      upgradeAutoMoney:"Auto Money Upgrade (Cost: {cost})",
-      prestige:"Prestige Reset",enemy:"Enemy",hp:"HP",stage:"Stage",points:"Power",prestigeLabel:"Prestige",
-      money:"Money",eventNothing:"Nothing happening...",
-      buildWood:"Build Lumber Mill (Cost: {cost})",buildStone:"Build Quarry (Cost: {cost})",
-      hireHero:"Hire Hero (Cost: {cost})"},
-  ja:{title:"アイドル文明 – 原始人から銀河へ",click:"資源を集める",save:"セーブ",reset:"リセット",
-      upgradeClick:"クリック強化 (コスト: {cost})",upgradeAuto:"自動攻撃強化 (コスト: {cost})",
-      upgradeAutoMoney:"自動収入強化 (コスト: {cost})",
-      prestige:"転生リセット",enemy:"敵",hp:"HP",stage:"ステージ",points:"パワー",prestigeLabel:"転生",
-      money:"お金",eventNothing:"何も起きていません...",
-      buildWood:"伐採所建設 (コスト: {cost})",buildStone:"採石場建設 (コスト: {cost})",
-      hireHero:"ヒーロー雇用 (コスト: {cost})"},
-  es:{title:"Civilización Idle – De Hombre de las Cavernas a la Galaxia",click:"Recolectar Recursos",
-      save:"Guardar",reset:"Reiniciar",upgradeClick:"Mejora de Clic (Costo: {cost})",
-      upgradeAuto:"Mejora Automática (Costo: {cost})",upgradeAutoMoney:"Mejora de Dinero Automático (Costo: {cost})",
-      prestige:"Reiniciar Prestigio",enemy:"Enemigo",hp:"HP",stage:"Etapa",points:"Poder",prestigeLabel:"Prestigio",
-      money:"Dinero",eventNothing:"Nada está sucediendo...",
-      buildWood:"Construir Aserradero (Costo: {cost})",buildStone:"Construir Cantera (Costo: {cost})",
-      hireHero:"Contratar Héroe (Costo: {cost})"}
-};
+    // ===== UI =====
+    const msg = document.getElementById('msg');
+    const hint = document.getElementById('hint');
+    const itemsDiv = document.getElementById('items');
+    const btn = document.getElementById('btn');
+    const inputBox = document.getElementById('inputBox');
+    const codeInput = document.getElementById('codeInput');
+    const codeBtn = document.getElementById('codeBtn');
 
-/* ===== Game Variables ===== */
-let points=0,clickPower=1,autoPower=0,autoMoney=0,money=0;
-let upgradeClickCost=100,upgradeAutoCost=500,upgradeAutoMoneyCost=1000;
-let stage=1,enemyHp=10,enemyMaxHp=10,prestige=0;
-let buildings={wood:0,stone:0},heroes=0;
-let currentLang='en';
+    function updateUI() {
+      itemsDiv.innerHTML = items.map(i=>`<div class=\"item\">${i}</div>`).join('');
+      hint.textContent = showHint;
+    }
 
-const enemyNames=["Slime","Goblin","Dragon","Demon Lord"];
-const eventsList=[
-  {textEN:"A festival increases production!",textJA:"祭りで生産が増加！",textES:"¡Un festival aumenta la producción!",effect:()=>{points+=stage*50; money+=stage*20;}},
-  {textEN:"A plague reduces production!",textJA:"疫病で生産減少！",textES:"¡Una plaga reduce la producción!",effect:()=>{points-=Math.min(points,stage*30); money-=Math.min(money,stage*10);}}
-];
+    // ===== タッチ・マウス操作 =====
+    let isTouching=false, lastX=0, lastY=0;
+    function onStart(e){
+      isTouching=true;
+      const t = e.touches?e.touches[0]:e;
+      lastX=t.clientX; lastY=t.clientY;
+    }
+    function onMove(e){
+      if(!isTouching) return;
+      const t = e.touches?e.touches[0]:e;
+      const dx=(t.clientX-lastX)/window.innerWidth*2;
+      const dy=(t.clientY-lastY)/window.innerHeight*2;
+      camera.rotation.y -= dx;
+      camera.rotation.x -= dy;
+      camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+      lastX=t.clientX; lastY=t.clientY;
+    }
+    function onEnd(){ isTouching=false; }
+    canvas.addEventListener('touchstart',onStart); canvas.addEventListener('touchmove',onMove); canvas.addEventListener('touchend',onEnd);
+    canvas.addEventListener('mousedown',onStart); canvas.addEventListener('mousemove',onMove); canvas.addEventListener('mouseup',onEnd);
 
-/* ===== DOM Elements ===== */
-const pointsEl=document.getElementById("points");
-const stageEl=document.getElementById("stage");
-const enemyNameEl=document.getElementById("enemyName");
-const enemyHpEl=document.getElementById("enemyHp");
-const enemyMaxHpEl=document.getElementById("enemyMaxHp");
-const prestigeEl=document.getElementById("prestige");
-const eventTextEl=document.getElementById("eventText");
-const moneyEl=document.getElementById("money");
+    // ===== アイテム取得・謎解き・ドア判定 =====
+    function checkInteract(){
+      // メモ取得
+      if(!hasMemo && camera.position.distanceTo(memo.position)<1.0){
+        hasMemo=true;
+        items.push('メモ');
+        scene.remove(memo);
+        msg.textContent='メモを手に入れた。「箱の暗号は円周率の最初の4桁」';
+        showHint='ヒント: 箱の暗号は円周率の最初の4桁';
+        updateUI();
+      }
+      // 箱取得
+      if(!hasBox && camera.position.distanceTo(box.position)<1.0){
+        hasBox=true;
+        items.push('箱');
+        msg.textContent='箱を見つけた。暗号を入力しよう';
+        showHint='箱の暗号を入力してください';
+        inputBox.style.display='block';
+        updateUI();
+      }
+      // 箱開け
+      if(hasBox && !boxOpened && codeSolved){
+        boxOpened=true;
+        items.push('鍵');
+        hasKey=true;
+        scene.remove(key);
+        msg.textContent='箱が開いた！中から鍵を手に入れた';
+        showHint='ドアに近づこう';
+        inputBox.style.display='none';
+        updateUI();
+      }
+      // 鍵取得（部屋2の鍵オブジェクト）
+      if(!hasKey && camera.position.distanceTo(key.position)<1.2 && currentRoom==2){
+        hasKey=true;
+        items.push('鍵');
+        scene.remove(key);
+        msg.textContent='鍵を手に入れた！脱出部屋へ行こう';
+        showHint='脱出部屋のドアに近づこう';
+        updateUI();
+      }
+      // ドア開け（部屋1→部屋2）
+      if(currentRoom==1 && camera.position.distanceTo(door1.position)<1.5){
+        btn.style.display='block';
+        btn.textContent='隣の部屋へ';
+      }else if(currentRoom==2 && camera.position.distanceTo(door2.position)<1.5){
+        btn.style.display='block';
+        btn.textContent='脱出部屋へ';
+      }else if(currentRoom==3 && camera.position.distanceTo(door3.position)<1.5 && hasKey){
+        btn.style.display='block';
+        btn.textContent='脱出する';
+      }else{
+        btn.style.display='none';
+      }
+    }
 
-/* ===== Language Switch ===== */
-document.getElementById("langSelect").onchange=(e)=>{
-  currentLang=e.target.value; updateLabels();
-};
+    btn.onclick=()=>{
+      if(currentRoom==1 && camera.position.distanceTo(door1.position)<1.5){
+        currentRoom=2;
+        camera.position.set(6,1.6,0);
+        msg.textContent='鍵を探そう';
+        showHint='部屋の中を探してみよう';
+        updateUI();
+      }else if(currentRoom==2 && camera.position.distanceTo(door2.position)<1.5){
+        currentRoom=3;
+        camera.position.set(-6,1.6,0);
+        msg.textContent='脱出部屋に来た！ドアを開けるには鍵が必要';
+        showHint='鍵を手に入れよう';
+        updateUI();
+      }else if(currentRoom==3 && camera.position.distanceTo(door3.position)<1.5 && hasKey){
+        escaped=true;
+        msg.textContent='脱出成功！おめでとう！';
+        showHint='ゲームクリア！';
+        btn.style.display='none';
+        updateUI();
+      }
+    };
 
-/* ===== Update Labels ===== */
-function updateLabels(){
-  const lang=LANGS[currentLang];
-  document.getElementById("gameTitle").textContent=lang.title;
-  document.getElementById("clickBtn").textContent=lang.click;
-  document.getElementById("saveBtn").textContent=lang.save;
-  document.getElementById("resetBtn").textContent=lang.reset;
-  document.getElementById("upgradeClick").textContent=lang.upgradeClick.replace("{cost}",upgradeClickCost);
-  document.getElementById("upgradeAuto").textContent=lang.upgradeAuto.replace("{cost}",upgradeAutoCost);
-  document.getElementById("upgradeAutoMoney").textContent=lang.upgradeAutoMoney.replace("{cost}",upgradeAutoMoneyCost);
-  document.getElementById("prestigeBtn").textContent=lang.prestige;
-  document.getElementById("enemyLabel").textContent=lang.enemy+": ";
-  document.getElementById("buildWood").textContent=lang.buildWood.replace("{cost}",500);
-  document.getElementById("buildStone").textContent=lang.buildStone.replace("{cost}",500);
-  document.getElementById("hireHero").textContent=lang.hireHero.replace("{cost}",1000);
-}
+    // ===== 箱の暗号入力 =====
+    codeBtn.onclick=()=>{
+      if(codeInput.value===codeAnswer){
+        codeSolved=true;
+        msg.textContent='正解！箱が開いた';
+        showHint='箱の中身を確認しよう';
+        inputBox.style.display='none';
+        updateUI();
+      }else{
+        msg.textContent='違います。もう一度入力してください';
+      }
+    };
 
-/* ===== Update Display ===== */
-function updateDisplay(){
-  pointsEl.textContent=points.toLocaleString();
-  stageEl.textContent=stage;
-  prestigeEl.textContent=prestige;
-  moneyEl.textContent=money.toLocaleString();
-  enemyNameEl.textContent=enemyNames[(stage-1)%enemyNames.length];
-  enemyHpEl.textContent=Math.max(enemyHp,0);
-  enemyMaxHpEl.textContent=enemyMaxHp;
-  updateLabels();
-}
+    // ===== WASD移動 =====
+    let moveF=0,moveB=0,moveL=0,moveR=0;
+    document.addEventListener('keydown',e=>{
+      if(e.key==='w')moveF=1;
+      if(e.key==='s')moveB=1;
+      if(e.key==='a')moveL=1;
+      if(e.key==='d')moveR=1;
+    });
+    document.addEventListener('keyup',e=>{
+      if(e.key==='w')moveF=0;
+      if(e.key==='s')moveB=0;
+      if(e.key==='a')moveL=0;
+      if(e.key==='d')moveR=0;
+    });
 
-/* ===== Attack & Enemy ===== */
-function defeatEnemy(){
-  points += stage*50*(1+prestige*0.1);
-  money += stage*20*(1+prestige*0.1);
-  stage++;
-  enemyMaxHp = Math.floor(enemyMaxHp*2.2);
-  enemyHp = enemyMaxHp;
-  updateDisplay();
-}
+    // ===== メインループ =====
+    function animate(){
+      requestAnimationFrame(animate);
+      // 移動
+      const speed=0.05;
+      let dir=new THREE.Vector3();
+      if(moveF)dir.z-=1;
+      if(moveB)dir.z+=1;
+      if(moveL)dir.x-=1;
+      if(moveR)dir.x+=1;
+      dir.applyEuler(camera.rotation);
+      camera.position.addScaledVector(dir,speed);
 
-function attack(dmg){
-  enemyHp -= dmg;
-  spawnStar();
-  if(enemyHp <= 0) defeatEnemy();
-  updateDisplay();
-}
+      // 部屋ごとの壁制限
+      if(currentRoom==1){
+        camera.position.x=Math.max(-2.5,Math.min(2.5,camera.position.x));
+        camera.position.z=Math.max(-2.5,Math.min(2.5,camera.position.z));
+      }else if(currentRoom==2){
+        camera.position.x=Math.max(4.5,Math.min(7.5,camera.position.x));
+        camera.position.z=Math.max(-1.5,Math.min(1.5,camera.position.z));
+      }else if(currentRoom==3){
+        camera.position.x=Math.max(-7.5,Math.min(-4.5,camera.position.x));
+        camera.position.z=Math.max(-1.5,Math.min(1.5,camera.position.z));
+      }
+      camera.position.y=1.6;
 
-/* ===== Click Effect ===== */
-function spawnStar(){
-  const star=document.createElement("div");
-  star.className="star";
-  star.style.left=(window.innerWidth/2+Math.random()*100-50)+"px";
-  star.style.top=(window.innerHeight/2+Math.random()*50-25)+"px";
-  document.body.appendChild(star);
-  setTimeout(()=>star.remove(),1000);
-}
+      checkInteract();
+      renderer.render(scene,camera);
+    }
+    animate();
 
-/* ===== Click & Auto Attack ===== */
-document.getElementById("clickBtn").onclick=()=>attack(clickPower);
-setInterval(()=>{if(autoPower>0) attack(autoPower)},1000);
-
-/* ===== Auto Money ===== */
-setInterval(()=>{money += autoMoney + buildings.wood*5 + buildings.stone*5 + heroes*10; updateDisplay();},1000);
-
-/* ===== Upgrades ===== */
-document.getElementById("upgradeClick").onclick=()=>{
-  if(points>=upgradeClickCost){points-=upgradeClickCost; clickPower=Math.floor(clickPower*2); upgradeClickCost=Math.floor(upgradeClickCost*2.5); updateDisplay();}
-};
-document.getElementById("upgradeAuto").onclick=()=>{
-  if(points>=upgradeAutoCost){points-=upgradeAutoCost; autoPower+=Math.floor(upgradeAutoCost/10); upgradeAutoCost=Math.floor(upgradeAutoCost*3); updateDisplay();}
-};
-document.getElementById("upgradeAutoMoney").onclick=()=>{
-  if(money>=upgradeAutoMoneyCost){money-=upgradeAutoMoneyCost; autoMoney+=50; upgradeAutoMoneyCost=Math.floor(upgradeAutoMoneyCost*2); updateDisplay();}
-};
-
-/* ===== Buildings ===== */
-document.getElementById("buildWood").onclick=()=>{
-  if(money>=500){money-=500; buildings.wood++; updateDisplay();}
-};
-document.getElementById("buildStone").onclick=()=>{
-  if(money>=500){money-=500; buildings.stone++; updateDisplay();}
-};
-
-/* ===== Heroes ===== */
-document.getElementById("hireHero").onclick=()=>{
-  if(money>=1000){money-=1000; heroes++; updateDisplay();}
-};
-
-/* ===== Random Events ===== */
-setInterval(()=>{
-  if(Math.random()<0.05){
-    const e=eventsList[Math.floor(Math.random()*eventsList.length)];
-    const txt=currentLang==="ja"?e.textJA:currentLang==="es"?e.textES:e.textEN;
-    e.effect();
-    eventTextEl.textContent=txt;
-  } else {
-    eventTextEl.textContent=LANGS[currentLang].eventNothing;
-  }
-  updateDisplay();
-},5000);
-
-/* ===== Prestige ===== */
-document.getElementById("prestigeBtn").onclick=()=>{
-  if(confirm("Reset all stages for permanent bonus?")){
-    prestige++; points=0; money=0; stage=1; enemyHp=10; enemyMaxHp=10;
-    clickPower=1; autoPower=0; autoMoney=0; buildings={wood:0,stone:0}; heroes=0;
-    upgradeClickCost=100; upgradeAutoCost=500; upgradeAutoMoneyCost=1000;
-    updateDisplay();
-  }
-};
-
-/* ===== Save & Reset ===== */
-document.getElementById("saveBtn").onclick=()=>{
-  const save={points,clickPower,autoPower,autoMoney,money,upgradeClickCost,upgradeAutoCost,upgradeAutoMoneyCost,
-              stage,enemyHp,enemyMaxHp,prestige,buildings,heroes,currentLang};
-  localStorage.setItem("saveData",JSON.stringify(save));
-  alert("Game Saved!");
-};
-document.getElementById("resetBtn").onclick=()=>{
-  if(confirm("Really reset?")){localStorage.removeItem("saveData"); location.reload();}
-};
-
-/* ===== Load Save ===== */
-if(localStorage.getItem("saveData")){
-  const s=JSON.parse(localStorage.getItem("saveData"));
-  points=s.points||0; clickPower=s.clickPower||1; autoPower=s.autoPower||0; autoMoney=s.autoMoney||0;
-  money=s.money||0; upgradeClickCost=s.upgradeClickCost||100; upgradeAutoCost=s.upgradeAutoCost||500; upgradeAutoMoneyCost=s.upgradeAutoMoneyCost||1000;
-  stage=s.stage||1; enemyHp=s.enemyHp||10; enemyMaxHp=s.enemyMaxHp||10; prestige=s.prestige||0;
-  buildings=s.buildings||{wood:0,stone:0}; heroes=s.heroes||0;
-  currentLang=s.currentLang||'en'; document.getElementById("langSelect").value=currentLang;
-}
-
-updateDisplay();
-</script>
+    // ===== 初期UI更新 =====
+    updateUI();
+  </script>
 </body>
 </html>
